@@ -1,5 +1,4 @@
 {
-  "status": "timer",
   "examStartTime": 1773465300000,
   "examEndTime": null,
   "generalInstructions": "- **Item 1** The integral must be $$\\int e^x dx$$",

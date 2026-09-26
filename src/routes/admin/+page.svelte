@@ -7,7 +7,6 @@
         examEndTime: null,
         generalInstructions: "",
         clarifications: "",
-        status: "timer",
         theme: "dark",
         backgroundType: "image",
         backgroundUrl: "",
@@ -142,14 +141,6 @@
                 bind:value={examState.examTitle}
                 placeholder="e.g. Long Exam 1"
             />
-        </div>
-
-        <div class="control-group">
-            <label for="status">Status</label>
-            <select id="status" bind:value={examState.status}>
-                <option value="timer">Timer View (Countdown)</option>
-                <option value="content">Exam Content View</option>
-            </select>
         </div>
 
         <div class="control-group">

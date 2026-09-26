@@ -7,7 +7,6 @@
     import type { ExamState } from "$lib/types";
 
     let examState: ExamState = $state({
-        status: "timer",
         examStartTime: null,
         examEndTime: null,
         generalInstructions: "",
@@ -39,8 +38,7 @@
             : Math.max(0, examState.examEndTime - now),
     );
     const showExam = $derived(
-        examState.status !== "timer" ||
-            (examState.examStartTime !== null && startTimeLeft === 0),
+        examState.examStartTime !== null && startTimeLeft === 0,
     );
     const startTimeString = $derived(formatDuration(startTimeLeft));
     const endTimeString = $derived(formatExamTimeRemaining(endTimeLeft));
@@ -68,11 +66,11 @@
 
             // Sync Audio
             if (audioEl && examState.audioUrl) {
-                // Autoplay in content mode if not muted and paused
-                if (examState.status === "content") {
-                    if (!isMuted && audioEl.paused) {
-                        audioEl.play().catch(() => {});
-                    }
+                if (showExam) {
+                    audioEl.pause();
+                    audioEl.currentTime = 0;
+                    isMuted = true;
+                    audioEl.muted = true;
                 } else if (examState.examStartTime !== null) {
                     // ... (audio logic continues)
                     const duration = audioEl.duration;
@@ -118,18 +116,6 @@
         eventSource = new EventSource("/api/events");
         eventSource.onmessage = (event) => {
             const data = JSON.parse(event.data);
-
-            // Detect transition from timer to content
-            if (examState.status === "timer" && data.status === "content") {
-                // Stop and reset audio
-                if (audioEl) {
-                    audioEl.pause();
-                    audioEl.currentTime = 0;
-                    isMuted = true;
-                    audioEl.muted = true;
-                }
-            }
-
             examState = data;
 
             // Apply Theme

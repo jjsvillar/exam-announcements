@@ -1,5 +1,4 @@
 export interface ExamState {
-    status: 'timer' | 'content';
     examStartTime: number | null; // Basis of the pre-exam countdown
     examEndTime: number | null; // Basis of the in-exam time remaining
     generalInstructions: string;
