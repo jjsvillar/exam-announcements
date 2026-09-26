@@ -20,6 +20,8 @@
     let now = $state(Date.now());
     let generalInstructionsDiv: HTMLDivElement | undefined = $state();
     let clarificationsDiv: HTMLDivElement | undefined = $state();
+    let clarificationSlideIndex = $state(0);
+    let clarificationSlideSeconds = $state(0);
 
     // Multimedia
     let audioEl: HTMLAudioElement | undefined = $state();
@@ -59,10 +61,29 @@
             minute: "2-digit",
         }),
     );
+    const clarificationSlides = $derived(
+        groupClarifications(examState.clarifications),
+    );
+    const activeClarification = $derived(
+        clarificationSlides[clarificationSlideIndex] ?? "",
+    );
 
     onMount(() => {
         const interval = setInterval(() => {
             now = Date.now();
+
+            if (showExam && clarificationSlides.length > 1) {
+                clarificationSlideSeconds += 1;
+                if (clarificationSlideSeconds >= 10) {
+                    clarificationSlideIndex =
+                        (clarificationSlideIndex + 1) %
+                        clarificationSlides.length;
+                    clarificationSlideSeconds = 0;
+                }
+            } else {
+                clarificationSlideIndex = 0;
+                clarificationSlideSeconds = 0;
+            }
 
             // Sync Audio
             if (audioEl && examState.audioUrl) {
@@ -116,6 +137,10 @@
         eventSource = new EventSource("/api/events");
         eventSource.onmessage = (event) => {
             const data = JSON.parse(event.data);
+            if (data.clarifications !== examState.clarifications) {
+                clarificationSlideIndex = 0;
+                clarificationSlideSeconds = 0;
+            }
             examState = data;
 
             // Apply Theme
@@ -165,6 +190,37 @@
         return formatDuration(displayedMilliseconds);
     }
 
+    function groupClarifications(markdown: string) {
+        const linesPerSlide = 8;
+        const slides: string[] = [];
+        let slideLines: string[] = [];
+        let populatedLines = 0;
+
+        const finishSlide = () => {
+            const slide = slideLines.join("\n").trim();
+            if (slide) slides.push(slide);
+            slideLines = [];
+            populatedLines = 0;
+        };
+
+        for (const line of markdown.split("\n")) {
+            if (/^\s*---+\s*$/.test(line)) {
+                finishSlide();
+                continue;
+            }
+
+            if (line.trim() && populatedLines >= linesPerSlide) {
+                finishSlide();
+            }
+
+            slideLines.push(line);
+            if (line.trim()) populatedLines += 1;
+        }
+
+        finishSlide();
+        return slides.length > 0 ? slides : [""];
+    }
+
     function toggleMute() {
         if (!audioEl) return;
         isMuted = !isMuted;
@@ -205,7 +261,7 @@
     });
 
     $effect(() => {
-        void renderContent(examState.clarifications, clarificationsDiv);
+        void renderContent(activeClarification, clarificationsDiv);
     });
 </script>
 
@@ -301,12 +357,24 @@
                         bind:this={generalInstructionsDiv}
                     ></div>
                 </section>
-                <section class="content-column">
+                <section class="content-column clarification-column">
                     <h1 class="content-heading">Clarifications</h1>
-                    <div
-                        class="content-view"
-                        bind:this={clarificationsDiv}
-                    ></div>
+                    <div class="clarification-slide-frame">
+                        {#key clarificationSlideIndex}
+                            <div
+                                class="content-view clarification-slide"
+                                bind:this={clarificationsDiv}
+                                in:fade={{ duration: 300 }}
+                                out:fade={{ duration: 300 }}
+                            ></div>
+                        {/key}
+                        <div
+                            class="slide-counter"
+                            aria-label={`Clarification slide ${clarificationSlideIndex + 1} of ${clarificationSlides.length}`}
+                        >
+                            {clarificationSlideIndex + 1} / {clarificationSlides.length}
+                        </div>
+                    </div>
                 </section>
             </main>
         </div>
@@ -485,6 +553,7 @@
 
     .content-grid {
         flex: 1;
+        min-height: 0;
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         overflow-y: auto;
@@ -501,6 +570,36 @@
 
     .content-column + .content-column {
         border-left: 1px solid var(--border-color);
+    }
+
+    .clarification-column {
+        display: flex;
+        min-height: 0;
+        flex-direction: column;
+    }
+
+    .clarification-slide-frame {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        padding-bottom: 2rem;
+    }
+
+    .clarification-slide {
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .slide-counter {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        color: var(--scl-gray);
+        font-size: 0.9rem;
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+        opacity: 0.65;
     }
 
     .content-heading {
