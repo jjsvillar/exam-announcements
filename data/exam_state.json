@@ -1,0 +1,11 @@
+{
+  "status": "timer",
+  "targetTime": 1773465300000,
+  "examStartTime": null,
+  "markdown": "- **Item 1** The integral must be $$\\int e^x dx$$",
+  "theme": "light",
+  "backgroundUrl": "/uploads/743db2fe-6734-48fa-8ea4-1698ec370d91.jpg",
+  "audioUrl": "/uploads/ef543933-5c98-469c-8ac5-ac559cdf1341.ogg",
+  "courseName": "CS 136",
+  "examTitle": "Long Exam 1"
+}
