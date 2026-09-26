@@ -13,6 +13,7 @@
         generalInstructions: "",
         clarifications: "",
         theme: "dark",
+        backgroundType: "image",
         backgroundUrl: "",
         audioUrl: "",
     });
@@ -223,29 +224,26 @@
 </script>
 
 <!-- Background Layer -->
-{#if examState.backgroundUrl}
-    <!-- Hide media in Light Mode Exam View -->
-    {#if examState.theme !== "light" || !showExam}
-        {#if examState.backgroundUrl.endsWith(".mp4")}
-            <!-- svelte-ignore a11y_media_has_caption -->
-            <video
-                class="bg-media"
-                src={examState.backgroundUrl}
-                autoplay
-                loop
-                muted
-                playsinline
-            ></video>
-        {:else}
-            <div
-                class="bg-media"
-                style="background-image: url('{examState.backgroundUrl}')"
-            ></div>
-        {/if}
+{#if examState.backgroundUrl && !showExam}
+    {#if examState.backgroundType === "video"}
+        <!-- svelte-ignore a11y_media_has_caption -->
+        <video
+            class="bg-media"
+            src={examState.backgroundUrl}
+            autoplay
+            loop
+            muted
+            playsinline
+        ></video>
+    {:else}
+        <div
+            class="bg-media"
+            style="background-image: url('{examState.backgroundUrl}')"
+        ></div>
     {/if}
 {/if}
 
-<!-- Audio Layer -->
+<!-- The audio element also accepts supported video sources without rendering video. -->
 {#if examState.audioUrl}
     <audio
         bind:this={audioEl}

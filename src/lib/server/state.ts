@@ -21,6 +21,7 @@ const defaultState: ExamState = {
     generalInstructions: '# Waiting for exam to start...',
     clarifications: '',
     theme: 'dark',
+    backgroundType: 'image',
     backgroundUrl: '',
     audioUrl: ''
 };
@@ -37,6 +38,12 @@ function loadState(): ExamState {
             }
             if (stored.generalInstructions == null && stored.markdown != null) {
                 stored.generalInstructions = stored.markdown;
+            }
+            if (stored.backgroundType == null) {
+                const backgroundPath = String(stored.backgroundUrl ?? '').split(/[?#]/, 1)[0].toLowerCase();
+                stored.backgroundType = /\.(mp4|webm|ogv|ogg|mov)$/.test(backgroundPath)
+                    ? 'video'
+                    : 'image';
             }
 
             delete stored.targetTime;

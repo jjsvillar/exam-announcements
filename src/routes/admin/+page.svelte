@@ -9,6 +9,7 @@
         clarifications: "",
         status: "timer",
         theme: "dark",
+        backgroundType: "image",
         backgroundUrl: "",
         audioUrl: "",
         courseName: "",
@@ -61,6 +62,9 @@
             const data = await res.json();
             if (data.success) {
                 examState[targetField] = data.url;
+                if (targetField === "backgroundUrl") {
+                    examState.backgroundType = "image";
+                }
             } else {
                 alert("Upload failed: " + data.error);
             }
@@ -97,6 +101,13 @@
         }
 
         return false;
+    }
+
+    function setBackgroundType(backgroundType: ExamState["backgroundType"]) {
+        if (examState.backgroundType !== backgroundType) {
+            examState.backgroundUrl = "";
+        }
+        examState.backgroundType = backgroundType;
     }
 
     function refreshSync() {
@@ -172,38 +183,72 @@
         </div>
 
         <div class="control-group">
-            <label for="backgroundUrl">Background (MP4/GIF)</label>
-            <div class="input-row">
+            <label for="backgroundType">Pre-exam Countdown Background</label>
+            <select
+                id="backgroundType"
+                value={examState.backgroundType}
+                onchange={(event) =>
+                    setBackgroundType(
+                        (event.currentTarget as HTMLSelectElement)
+                            .value as ExamState["backgroundType"],
+                    )}
+            >
+                <option value="image">Image Upload</option>
+                <option value="video">Video Link</option>
+            </select>
+
+            {#if examState.backgroundType === "image"}
+                <div class="input-row background-source-row">
+                    <input
+                        type="text"
+                        aria-label="Uploaded image path"
+                        value={examState.backgroundUrl}
+                        placeholder="No image uploaded"
+                        readonly
+                    />
+                    <input
+                        type="file"
+                        aria-label="Upload countdown background image"
+                        accept="image/gif,image/jpeg,image/png,image/webp"
+                        onchange={(e) => uploadFile(e, "backgroundUrl")}
+                    />
+                </div>
+                <div class="help-text">
+                    Upload a JPG, PNG, GIF, or WebP image.
+                </div>
+            {:else}
                 <input
                     type="text"
                     id="backgroundUrl"
                     bind:value={examState.backgroundUrl}
-                    placeholder="https://example.com/loop.mp4"
+                    placeholder="https://example.com/countdown.mp4"
                 />
-                <input
-                    type="file"
-                    accept="video/mp4,image/gif,image/jpeg,image/png"
-                    onchange={(e) => uploadFile(e, "backgroundUrl")}
-                    style="max-width: 200px;"
-                />
-            </div>
+                <div class="help-text">
+                    Enter a direct browser-playable video URL, such as an MP4 or
+                    WebM link.
+                </div>
+            {/if}
         </div>
 
         <div class="control-group">
-            <label for="audioUrl">Audio (Ends at 0:00)</label>
+            <label for="audioUrl">Countdown Audio (Upload or Link)</label>
             <div class="input-row">
                 <input
                     type="text"
                     id="audioUrl"
                     bind:value={examState.audioUrl}
-                    placeholder="https://example.com/music.mp3"
+                    placeholder="https://example.com/music.mp3 or video.mp4"
                 />
                 <input
                     type="file"
-                    accept="audio/*"
+                    aria-label="Upload countdown audio or video"
+                    accept="audio/*,video/*"
                     onchange={(e) => uploadFile(e, "audioUrl")}
                     style="max-width: 200px;"
                 />
+            </div>
+            <div class="help-text">
+                Video sources are supported; only their audio track is played.
             </div>
         </div>
 
@@ -270,6 +315,14 @@
 
     .control-group {
         margin-bottom: 1.5rem;
+    }
+
+    .background-source-row {
+        margin-top: 0.75rem;
+    }
+
+    .background-source-row input[type="file"] {
+        max-width: 260px;
     }
 
     label {
