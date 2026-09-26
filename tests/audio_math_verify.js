@@ -8,6 +8,10 @@
  * Goal: Audio should end (reach duration) exactly when timeLeft reaches 0 (or a multiple of duration).
  */
 
+/**
+ * @param {number} timeLeftMs
+ * @param {number} durationSec
+ */
 function calculateExpectedTime(timeLeftMs, durationSec) {
     const timeLeftSec = timeLeftMs / 1000;
     const duration = durationSec;
@@ -25,6 +29,12 @@ function calculateExpectedTime(timeLeftMs, durationSec) {
     return correctCurrentTime;
 }
 
+/**
+ * @param {string} capability
+ * @param {number} timeLeftMs
+ * @param {number} durationSec
+ * @param {number} expectedTime
+ */
 function runTest(capability, timeLeftMs, durationSec, expectedTime) {
     const result = calculateExpectedTime(timeLeftMs, durationSec);
     const pass = Math.abs(result - expectedTime) < 0.001;

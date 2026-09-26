@@ -1,8 +1,9 @@
 export interface ExamState {
     status: 'timer' | 'content';
-    targetTime: number | null; // Timestamp for timer countdown end
-    examStartTime: number | null; // When the exam started (entered content mode)
-    markdown: string;
+    examStartTime: number | null; // Basis of the pre-exam countdown
+    examEndTime: number | null; // Basis of the in-exam time remaining
+    generalInstructions: string;
+    clarifications: string;
     // Version 2 features
     theme: 'dark' | 'light';
     backgroundUrl: string; // URL for MP4 or GIF

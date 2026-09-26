@@ -2,34 +2,41 @@
     import { onMount } from "svelte";
     import type { ExamState } from "$lib/types";
 
-    let state: ExamState = $state({
-        targetTime: null,
+    let examState: ExamState = $state({
         examStartTime: null,
-        markdown: "",
+        examEndTime: null,
+        generalInstructions: "",
+        clarifications: "",
+        status: "timer",
+        theme: "dark",
+        backgroundUrl: "",
+        audioUrl: "",
         courseName: "",
         examTitle: "",
     });
 
-    let targetDate = $state(""); // YYYY-MM-DDTHH:mm
+    let startDate = $state("");
+    let endDate = $state("");
+
+    function toLocalDateTime(timestamp: number | null) {
+        if (timestamp === null) return "";
+
+        const date = new Date(timestamp);
+        const localDate = new Date(
+            date.getTime() - date.getTimezoneOffset() * 60000,
+        );
+        return localDate.toISOString().slice(0, 16);
+    }
 
     onMount(() => {
-        // Fetch current state via SSE (just once)
+        // Keep the admin form synchronized with every pushed state update.
         const es = new EventSource("/api/events");
         es.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            state = data;
+            examState = data;
 
-            if (state.targetTime) {
-                // Formatting for datetime-local
-                const d = new Date(state.targetTime);
-                // Adjust to local ISO string
-                // Create a date object that represents the same local time in UTC to get ISO string correctly formatted
-                const localDate = new Date(
-                    d.getTime() - d.getTimezoneOffset() * 60000,
-                );
-                targetDate = localDate.toISOString().slice(0, 16);
-            }
-            es.close();
+            startDate = toLocalDateTime(examState.examStartTime);
+            endDate = toLocalDateTime(examState.examEndTime);
         };
 
         return () => es.close();
@@ -53,7 +60,7 @@
             });
             const data = await res.json();
             if (data.success) {
-                state[targetField] = data.url;
+                examState[targetField] = data.url;
             } else {
                 alert("Upload failed: " + data.error);
             }
@@ -63,33 +70,42 @@
     }
 
     async function save() {
-        if (targetDate) {
-            state.targetTime = new Date(targetDate).getTime();
-        } else {
-            state.targetTime = null;
+        const startTime = startDate ? new Date(startDate).getTime() : null;
+        const endTime = endDate ? new Date(endDate).getTime() : null;
+
+        if (startTime !== null && endTime !== null && endTime <= startTime) {
+            alert("Time end must be later than time start.");
+            return false;
         }
+
+        examState.examStartTime = startTime;
+        examState.examEndTime = endTime;
 
         try {
             const res = await fetch("/api/state", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(state),
+                body: JSON.stringify(examState),
             });
             if (res.ok) {
-                // Flash success or similar
+                return true;
             } else {
                 alert("Error saving.");
             }
         } catch (e) {
             alert("Error saving: " + e);
         }
+
+        return false;
     }
 
     function refreshSync() {
         // Just saving triggers the state update which client listens to.
         // The client logic should handle re-syncing on update.
         // We can explicitly clear and re-set to force it if needed, but save should work.
-        save().then(() => alert("Saved & Synced!"));
+        save().then((saved) => {
+            if (saved) alert("Saved & Synced!");
+        });
     }
 </script>
 
@@ -102,7 +118,7 @@
             <input
                 type="text"
                 id="courseName"
-                bind:value={state.courseName}
+                bind:value={examState.courseName}
                 placeholder="e.g. CS 136"
             />
         </div>
@@ -112,31 +128,44 @@
             <input
                 type="text"
                 id="examTitle"
-                bind:value={state.examTitle}
+                bind:value={examState.examTitle}
                 placeholder="e.g. Long Exam 1"
             />
         </div>
 
         <div class="control-group">
             <label for="status">Status</label>
-            <select id="status" bind:value={state.status}>
+            <select id="status" bind:value={examState.status}>
                 <option value="timer">Timer View (Countdown)</option>
                 <option value="content">Exam Content View</option>
             </select>
         </div>
 
         <div class="control-group">
-            <label for="targetTime">Target Time (Countdown End)</label>
+            <label for="startTime">Time Start</label>
             <input
                 type="datetime-local"
-                id="targetTime"
-                bind:value={targetDate}
+                id="startTime"
+                bind:value={startDate}
             />
+            <div class="help-text">Basis of the pre-exam countdown.</div>
+        </div>
+
+        <div class="control-group">
+            <label for="endTime">Time End</label>
+            <input
+                type="datetime-local"
+                id="endTime"
+                bind:value={endDate}
+            />
+            <div class="help-text">
+                Basis of the time remaining during the exam.
+            </div>
         </div>
 
         <div class="control-group">
             <label for="theme">Theme</label>
-            <select id="theme" bind:value={state.theme}>
+            <select id="theme" bind:value={examState.theme}>
                 <option value="dark">Dark Theme (Default)</option>
                 <option value="light">Light Theme (Gold/Blue)</option>
             </select>
@@ -148,7 +177,7 @@
                 <input
                     type="text"
                     id="backgroundUrl"
-                    bind:value={state.backgroundUrl}
+                    bind:value={examState.backgroundUrl}
                     placeholder="https://example.com/loop.mp4"
                 />
                 <input
@@ -166,7 +195,7 @@
                 <input
                     type="text"
                     id="audioUrl"
-                    bind:value={state.audioUrl}
+                    bind:value={examState.audioUrl}
                     placeholder="https://example.com/music.mp3"
                 />
                 <input
@@ -178,22 +207,38 @@
             </div>
         </div>
 
-        <div class="editor-group">
-            <label for="markdown">Markdown Content (Supports LaTeX)</label>
-            <textarea
-                id="markdown"
-                bind:value={state.markdown}
-                rows="15"
-                placeholder="# Exam Instructions..."
-            ></textarea>
-            <div class="help-text">
-                Use $...$ for inline math and $$...$$ for block math.
+        <div class="editor-grid">
+            <div class="editor-group">
+                <label for="generalInstructions">General Instructions</label>
+                <textarea
+                    id="generalInstructions"
+                    bind:value={examState.generalInstructions}
+                    rows="15"
+                    placeholder="# General Instructions..."
+                ></textarea>
             </div>
+
+            <div class="editor-group">
+                <label for="clarifications">Clarifications</label>
+                <textarea
+                    id="clarifications"
+                    bind:value={examState.clarifications}
+                    rows="15"
+                    placeholder="# Clarifications..."
+                ></textarea>
+            </div>
+        </div>
+        <div class="help-text">
+            Both fields support Markdown. Use $...$ for inline math and $$...$$
+            for block math.
         </div>
 
         <div class="button-row">
             <button
-                onclick={() => save().then(() => alert("Saved!"))}
+                onclick={() =>
+                    save().then((saved) => {
+                        if (saved) alert("Saved!");
+                    })}
                 class="save-btn">Save</button
             >
             <button onclick={refreshSync} class="sync-btn"
@@ -259,6 +304,18 @@
         font-size: 0.9rem;
         resize: vertical;
         box-sizing: border-box;
+    }
+
+    .editor-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1.5rem;
+    }
+
+    @media (max-width: 720px) {
+        .editor-grid {
+            grid-template-columns: 1fr;
+        }
     }
 
     .help-text {

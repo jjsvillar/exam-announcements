@@ -6,71 +6,79 @@
     import { Volume2, VolumeX } from "lucide-svelte";
     import type { ExamState } from "$lib/types";
 
-    let state: ExamState = $state({
+    let examState: ExamState = $state({
         status: "timer",
-        targetTime: null,
         examStartTime: null,
-        markdown: "",
+        examEndTime: null,
+        generalInstructions: "",
+        clarifications: "",
         theme: "dark",
         backgroundUrl: "",
         audioUrl: "",
     });
 
-    let timeLeft = $state(0);
-    let timeString = $state("--:--:--");
-    let currentTimeString = $state("");
-    let contentDiv: HTMLDivElement | undefined = $state();
+    let now = $state(Date.now());
+    let generalInstructionsDiv: HTMLDivElement | undefined = $state();
+    let clarificationsDiv: HTMLDivElement | undefined = $state();
 
     // Multimedia
     let audioEl: HTMLAudioElement | undefined = $state();
     let isMuted = $state(true); // Default to muted for policy compliance
-    let showMuteControls = $state(false);
-
     // SSE connection
     let eventSource: EventSource;
 
-    // View state
-    let showCorrections = $state(false);
+    const startTimeLeft = $derived(
+        examState.examStartTime === null
+            ? null
+            : Math.max(0, examState.examStartTime - now),
+    );
+    const endTimeLeft = $derived(
+        examState.examEndTime === null
+            ? null
+            : Math.max(0, examState.examEndTime - now),
+    );
+    const showExam = $derived(
+        examState.status !== "timer" ||
+            (examState.examStartTime !== null && startTimeLeft === 0),
+    );
+    const startTimeString = $derived(formatDuration(startTimeLeft));
+    const endTimeString = $derived(formatExamTimeRemaining(endTimeLeft));
+    const endTimeUrgency = $derived(
+        endTimeLeft === null
+            ? "normal"
+            : endTimeLeft <= 5 * 60_000
+              ? "red"
+              : endTimeLeft <= 15 * 60_000
+                ? "orange"
+                : endTimeLeft <= 30 * 60_000
+                  ? "yellow"
+                  : "normal",
+    );
+    const currentTimeString = $derived(
+        new Date(now).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+        }),
+    );
 
     onMount(() => {
         const interval = setInterval(() => {
-            const now = Date.now();
-
-            // Handle targetTime being a string or number safely
-            let target = null;
-            if (state.targetTime) {
-                // If it comes from JSON/Input as string, convert it
-                target =
-                    typeof state.targetTime === "string"
-                        ? new Date(state.targetTime).getTime()
-                        : state.targetTime;
-            }
-
-            // Timer logic
-            if (target) {
-                const diff = target - now;
-                timeLeft = Math.max(0, diff);
-            } else {
-                timeLeft = 0;
-            }
-
-            // Update View Switch Trigger
-            showCorrections =
-                state.status !== "timer" || (target !== null && timeLeft === 0);
+            now = Date.now();
 
             // Sync Audio
-            if (audioEl && state.audioUrl) {
+            if (audioEl && examState.audioUrl) {
                 // Autoplay in content mode if not muted and paused
-                if (state.status === "content") {
+                if (examState.status === "content") {
                     if (!isMuted && audioEl.paused) {
                         audioEl.play().catch(() => {});
                     }
-                } else if (target) {
+                } else if (examState.examStartTime !== null) {
                     // ... (audio logic continues)
                     const duration = audioEl.duration;
                     if (duration && !isNaN(duration) && !audioEl.paused) {
                         // Unified Sync Logic
-                        const timeUntilEnd = (target - now) / 1000;
+                        const timeUntilEnd =
+                            (examState.examStartTime - now) / 1000;
 
                         // Continuous sync formula:
                         // (duration - (timeUntilEnd % duration)) % duration
@@ -104,28 +112,14 @@
                     }
                 }
             }
-
-            // Format time left
-            const hours = Math.floor(timeLeft / 3600000);
-            const minutes = Math.floor((timeLeft % 3600000) / 60000);
-            const seconds = Math.floor((timeLeft % 60000) / 1000);
-            timeString = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-
-            // Current Time
-            const cv = new Date();
-            currentTimeString = cv.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-            });
         }, 1000);
 
         eventSource = new EventSource("/api/events");
-        eventSource.onmessage = async (event) => {
+        eventSource.onmessage = (event) => {
             const data = JSON.parse(event.data);
 
             // Detect transition from timer to content
-            if (state.status === "timer" && data.status === "content") {
+            if (examState.status === "timer" && data.status === "content") {
                 // Stop and reset audio
                 if (audioEl) {
                     audioEl.pause();
@@ -135,16 +129,14 @@
                 }
             }
 
-            state = data;
+            examState = data;
 
             // Apply Theme
-            if (state.theme === "light") {
+            if (examState.theme === "light") {
                 document.documentElement.classList.add("light-theme");
             } else {
                 document.documentElement.classList.remove("light-theme");
             }
-
-            await renderContent();
         };
 
         return () => {
@@ -153,8 +145,37 @@
         };
     });
 
-    function pad(n: number) {
-        return n < 10 ? "0" + n : n;
+    function formatDuration(milliseconds: number | null) {
+        if (milliseconds === null) return "--:--:--";
+
+        const hours = Math.floor(milliseconds / 3600000);
+        const minutes = Math.floor((milliseconds % 3600000) / 60000);
+        const seconds = Math.floor((milliseconds % 60000) / 1000);
+        return [hours, minutes, seconds]
+            .map((part) => String(part).padStart(2, "0"))
+            .join(":");
+    }
+
+    function formatExamTimeRemaining(milliseconds: number | null) {
+        if (milliseconds === null) return "--:--:--";
+
+        const minute = 60_000;
+        let displayedMilliseconds = milliseconds;
+
+        if (milliseconds > 30 * minute) {
+            displayedMilliseconds =
+                Math.ceil(milliseconds / (30 * minute)) * 30 * minute;
+        } else if (milliseconds > 15 * minute) {
+            displayedMilliseconds =
+                Math.ceil(milliseconds / (15 * minute)) * 15 * minute;
+        } else if (milliseconds > 10 * minute) {
+            displayedMilliseconds =
+                Math.ceil(milliseconds / (5 * minute)) * 5 * minute;
+        } else if (milliseconds > 5 * minute) {
+            displayedMilliseconds = Math.ceil(milliseconds / minute) * minute;
+        }
+
+        return formatDuration(displayedMilliseconds);
     }
 
     function toggleMute() {
@@ -167,24 +188,18 @@
         }
     }
 
-    // Derived state for view switching
-    let isCorrectionsMode = $derived(
-        state.status !== "timer" ||
-            (state.targetTime !== null && timeLeft === 0),
-    );
-
-    async function renderContent() {
-        if (state.markdown && contentDiv) {
+    async function renderContent(markdown: string, element?: HTMLDivElement) {
+        if (element) {
             // Dynamic import for client-side only
             const { default: renderMathInElement } = await import(
                 "katex/dist/contrib/auto-render.mjs"
             );
 
-            const rawHtml = await marked.parse(state.markdown);
+            const rawHtml = await marked.parse(markdown);
             const sanitized = DOMPurify.sanitize(rawHtml as string);
-            contentDiv.innerHTML = sanitized;
+            element.innerHTML = sanitized;
 
-            renderMathInElement(contentDiv, {
+            renderMathInElement(element, {
                 delimiters: [
                     { left: "$$", right: "$$", display: true },
                     { left: "$", right: "$", display: false },
@@ -196,21 +211,26 @@
 
     // Reactively render
     $effect(() => {
-        if (contentDiv && state.markdown) {
-            renderContent();
-        }
+        void renderContent(
+            examState.generalInstructions,
+            generalInstructionsDiv,
+        );
+    });
+
+    $effect(() => {
+        void renderContent(examState.clarifications, clarificationsDiv);
     });
 </script>
 
 <!-- Background Layer -->
-{#if state.backgroundUrl}
-    <!-- Hide media in Light Mode Corrections View -->
-    {#if state.theme !== "light" || !showCorrections}
-        {#if state.backgroundUrl.endsWith(".mp4")}
+{#if examState.backgroundUrl}
+    <!-- Hide media in Light Mode Exam View -->
+    {#if examState.theme !== "light" || !showExam}
+        {#if examState.backgroundUrl.endsWith(".mp4")}
             <!-- svelte-ignore a11y_media_has_caption -->
             <video
                 class="bg-media"
-                src={state.backgroundUrl}
+                src={examState.backgroundUrl}
                 autoplay
                 loop
                 muted
@@ -219,17 +239,17 @@
         {:else}
             <div
                 class="bg-media"
-                style="background-image: url('{state.backgroundUrl}')"
+                style="background-image: url('{examState.backgroundUrl}')"
             ></div>
         {/if}
     {/if}
 {/if}
 
 <!-- Audio Layer -->
-{#if state.audioUrl}
+{#if examState.audioUrl}
     <audio
         bind:this={audioEl}
-        src={state.audioUrl}
+        src={examState.audioUrl}
         preload="auto"
         muted={isMuted}
         loop
@@ -245,43 +265,65 @@
 {/if}
 
 <div class="page-container">
-    {#if !showCorrections}
+    {#if !showExam}
         <div class="timer-view" in:fade={{ duration: 300 }}>
-            {#if state.courseName}
+            {#if examState.courseName}
                 <div
                     class="course-name"
-                    style={state.theme === "light"
+                    style={examState.theme === "light"
                         ? "color: var(--scl-gray) !important;"
                         : ""}
                 >
-                    {state.courseName}
+                    {examState.courseName}
                 </div>
             {/if}
-            {#if state.examTitle}
-                <div class="exam-title">{state.examTitle}</div>
+            {#if examState.examTitle}
+                <div class="exam-title">{examState.examTitle}</div>
             {/if}
             <div class="timer-label">Exam Starts In</div>
-            <h1 class="timer-display">{timeString}</h1>
+            <h1 class="timer-display">{startTimeString}</h1>
             <div class="server-time">Current Time: {currentTimeString}</div>
         </div>
     {:else}
-        <!-- Corrections View -->
+        <!-- Exam View -->
         <div class="exam-view" in:fade={{ duration: 300 }}>
             <header class="top-bar">
-                <div class="clock-display">
-                    {#if state.courseName || state.examTitle}
-                        <div class="header-title-group">
-                            {state.courseName}{state.courseName &&
-                            state.examTitle
-                                ? " - "
-                                : ""}{state.examTitle}
-                        </div>
+                <div class="header-title-group">
+                    {#if examState.courseName || examState.examTitle}
+                        {examState.courseName}{examState.courseName && examState.examTitle
+                            ? " - "
+                            : ""}{examState.examTitle}
                     {/if}
-                    <div class="time-now">{currentTimeString}</div>
+                </div>
+                <div
+                    class="header-time header-time-remaining"
+                    class:remaining-yellow={endTimeUrgency === "yellow"}
+                    class:remaining-orange={endTimeUrgency === "orange"}
+                    class:remaining-red={endTimeUrgency === "red"}
+                >
+                    <span class="header-label">Time Remaining</span>
+                    <span>{endTimeString}</span>
+                </div>
+                <div class="header-time header-current-time">
+                    <span class="header-label">Current Time</span>
+                    <span>{currentTimeString}</span>
                 </div>
             </header>
-            <main class="content-view" bind:this={contentDiv}>
-                <!-- Markdown content injected here -->
+            <main class="content-grid">
+                <section class="content-column">
+                    <h1 class="content-heading">General Instructions</h1>
+                    <div
+                        class="content-view"
+                        bind:this={generalInstructionsDiv}
+                    ></div>
+                </section>
+                <section class="content-column">
+                    <h1 class="content-heading">Clarifications</h1>
+                    <div
+                        class="content-view"
+                        bind:this={clarificationsDiv}
+                    ></div>
+                </section>
             </main>
         </div>
     {/if}
@@ -406,20 +448,47 @@
     .top-bar {
         padding: 1rem 2rem;
         background-color: var(--scl-blue); /* SCL_BLUE Header */
-        display: flex;
-        justify-content: flex-end; /* Align to right like Version 1 */
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
         align-items: center;
+        gap: 2rem;
         border-bottom: none;
+        color: var(--scl-white);
+        font-variant-numeric: tabular-nums;
     }
 
-    .clock-display {
+    .header-time {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.15rem;
         font-size: 1.5rem;
         font-weight: 600;
-        font-variant-numeric: tabular-nums;
-        color: var(--scl-white);
-        display: flex;
+        white-space: nowrap;
+    }
+
+    .header-current-time {
         align-items: center;
-        gap: 1.5rem; /* Space between Title and Time */
+    }
+
+    .header-time-remaining.remaining-yellow {
+        color: #fff176;
+    }
+
+    .header-time-remaining.remaining-orange {
+        color: #ffb74d;
+    }
+
+    .header-time-remaining.remaining-red {
+        color: #ff6b6b;
+    }
+
+    .header-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        opacity: 0.8;
+        text-transform: uppercase;
     }
 
     .header-title-group {
@@ -427,19 +496,39 @@
         text-transform: uppercase;
         letter-spacing: 0.05em;
         color: var(--scl-gold); /* SCL_GOLD Title */
-        text-align: right;
+        text-align: left;
+    }
+
+    .content-grid {
+        flex: 1;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        overflow-y: auto;
+        width: 100%;
+        box-sizing: border-box;
+        background-color: var(--scl-white);
+        color: var(--scl-gray);
+    }
+
+    .content-column {
+        min-width: 0;
+        padding: 0.75rem 2rem;
+    }
+
+    .content-column + .content-column {
+        border-left: 1px solid var(--border-color);
+    }
+
+    .content-heading {
+        margin: 0 0 0.5rem;
+        padding-bottom: 0.25rem;
+        border-bottom: 2px solid var(--scl-blue);
+        color: var(--scl-gray);
+        font-size: 1.25rem;
     }
 
     .content-view {
-        flex: 1;
-        padding: 4rem 5%;
-        overflow-y: auto;
-        margin: 0 auto;
-        width: 100%;
-        box-sizing: border-box;
-        font-size: 200%;
-        background-color: var(--scl-white);
-        color: var(--scl-gray);
+        font-size: 2rem;
     }
 
     /* Markdown Styles essentially handled by global, but ensuring readability */
@@ -454,11 +543,40 @@
         color: var(--scl-gray);
     }
 
-    @media (min-width: 1024px), (min-aspect-ratio: 16/9) {
+    @media (max-width: 720px) {
+        .top-bar {
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+        }
+
+        .header-title-group {
+            font-size: 0.8rem;
+        }
+
+        .header-time {
+            font-size: 1rem;
+        }
+
+        .header-label {
+            font-size: 0.55rem;
+        }
+
+        .content-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .content-column {
+            padding: 0.75rem 1rem;
+        }
+
+        .content-column + .content-column {
+            border-top: 1px solid var(--border-color);
+            border-left: 0;
+        }
+
         .content-view {
-            column-count: 2;
-            column-gap: 6rem;
-            column-rule: 1px solid var(--border-color);
+            font-size: 1.25rem;
         }
     }
 </style>
