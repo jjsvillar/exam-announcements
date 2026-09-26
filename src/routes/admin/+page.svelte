@@ -268,6 +268,10 @@
             Both fields support Markdown. Use $...$ for inline math and $$...$$
             for block math.
         </div>
+        <div class="help-text">
+            Clarifications rotate every 10 seconds in groups of eight non-empty
+            lines. Put <code>---</code> on its own line to start a new slide.
+        </div>
 
         <div class="button-row">
             <button
