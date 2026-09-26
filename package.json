@@ -18,6 +18,7 @@
 		"@types/dompurify": "^3.0.5",
 		"@types/katex": "^0.16.8",
 		"@types/marked": "^5.0.2",
+		"@types/node": "^24.10.1",
 		"svelte": "^5.49.2",
 		"svelte-check": "^4.3.6",
 		"typescript": "^5.9.3",
