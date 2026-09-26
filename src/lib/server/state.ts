@@ -15,7 +15,6 @@ if (!existsSync(DATA_DIR)) {
 
 // Initial state default
 const defaultState: ExamState = {
-    status: 'timer',
     examStartTime: null,
     examEndTime: null,
     generalInstructions: '# Waiting for exam to start...',
@@ -48,6 +47,7 @@ function loadState(): ExamState {
 
             delete stored.targetTime;
             delete stored.markdown;
+            delete stored.status;
 
             return { ...defaultState, ...stored };
         }
