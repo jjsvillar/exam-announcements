@@ -6,8 +6,9 @@ export interface ExamState {
     clarifications: string;
     // Version 2 features
     theme: 'dark' | 'light';
-    backgroundUrl: string; // URL for MP4 or GIF
-    audioUrl: string; // URL for audio file
+    backgroundType: 'image' | 'video';
+    backgroundUrl: string; // Uploaded image path or direct video URL
+    audioUrl: string; // Uploaded media path or direct media URL; only audio is played
     courseName?: string;
     examTitle?: string;
 }
