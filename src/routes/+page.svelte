@@ -275,37 +275,40 @@
     {#if !showExam}
         <div class="timer-view" in:fade={{ duration: 300 }}>
             <header class="preexam-title-row">
-                {#if examState.courseName}
-                    <div
-                        class="course-name"
-                        style={examState.theme === "light"
-                            ? "color: var(--scl-gray) !important;"
-                            : ""}
-                    >
-                        {examState.courseName}
+                <div class="preexam-logo-wrap">
+                    <img
+                        class="preexam-logo"
+                        src="/uploads/b1ffa2d2-636d-4719-8056-b2a40b1ef44c.png"
+                        alt="University of the Philippines, College of Engineering, and Department of Computer Science logos"
+                    />
+                </div>
+                {#if examState.courseName || examState.examTitle}
+                    <div class="preexam-title-text">
+                        {examState.courseName}{examState.courseName && examState.examTitle
+                            ? " - "
+                            : ""}{examState.examTitle}
                     </div>
                 {/if}
-                {#if examState.examTitle}
-                    <div class="exam-title">{examState.examTitle}</div>
-                {/if}
             </header>
-            <section class="preexam-countdown-column">
-                <div class="timer-label">Exam Starts In</div>
-                <h1 class="timer-display">{startTimeString}</h1>
-                <div class="server-time">
-                    Current Time: {currentTimeString}
-                </div>
-            </section>
-            <section
-                class="preexam-instructions-panel"
-                class:light-panel={examState.theme === "light"}
-            >
-                <h2>Pre-exam Instructions</h2>
-                <div
-                    class="preexam-instructions-content"
-                    bind:this={preExamInstructionsDiv}
-                ></div>
-            </section>
+            <div class="preexam-content-row">
+                <section class="preexam-countdown-column">
+                    <div class="timer-label">Exam Starts In</div>
+                    <h1 class="timer-display">{startTimeString}</h1>
+                    <div class="server-time">
+                        Current Time: {currentTimeString}
+                    </div>
+                </section>
+                <section
+                    class="preexam-instructions-panel"
+                    class:light-panel={examState.theme === "light"}
+                >
+                    <h2>Pre-exam Instructions</h2>
+                    <div
+                        class="preexam-instructions-content"
+                        bind:this={preExamInstructionsDiv}
+                    ></div>
+                </section>
+            </div>
         </div>
     {:else}
         <!-- Exam View -->
@@ -385,7 +388,7 @@
         z-index: 0;
         background-size: cover;
         background-position: center;
-        opacity: 0.3; /* Subtle background */
+        opacity: 1;
     }
 
     .mute-toggle {
@@ -413,23 +416,57 @@
     /* Timer View */
     .timer-view {
         flex: 1;
-        display: grid;
-        grid-template-columns: minmax(0, 2fr) minmax(22rem, 3fr);
-        grid-template-rows: auto minmax(0, 1fr);
-        column-gap: clamp(2rem, 5vw, 5rem);
-        row-gap: 1rem;
-        align-items: center;
-        padding: 2rem 5vw;
+        position: relative;
+        padding: 1rem 5vw 2rem;
         box-sizing: border-box;
         background: transparent;
     }
 
     .preexam-title-row {
-        grid-column: 1 / -1;
         width: 100%;
-        padding-block: clamp(1rem, 3vh, 2rem);
+        padding: 0;
         box-sizing: border-box;
         text-align: center;
+    }
+
+    .preexam-logo-wrap {
+        width: clamp(15rem, 25vw, 21rem);
+        max-width: 92%;
+        margin: 0 auto clamp(2rem, 4vh, 3rem);
+        overflow: hidden;
+        background: #0b5742;
+    }
+
+    .preexam-logo {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 0.25rem;
+    }
+
+    .preexam-title-text {
+        overflow: hidden;
+        color: var(--scl-white);
+        font-size: clamp(1.7rem, 3.5vw, 3.75rem);
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        line-height: 1.1;
+        text-overflow: ellipsis;
+        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .preexam-content-row {
+        position: absolute;
+        top: 50%;
+        right: 3vw;
+        left: 3vw;
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(22rem, 3fr);
+        gap: clamp(4rem, 6vw, 6rem);
+        align-items: center;
+        transform: translateY(-50%);
     }
 
     .preexam-countdown-column {
@@ -462,8 +499,8 @@
     .preexam-instructions-panel h2 {
         margin: 0 0 0.75rem;
         padding-bottom: 0.5rem;
-        border-bottom: 2px solid var(--accent-color);
-        font-size: clamp(1.4rem, 1.8vw, 1.75rem);
+        border-bottom: 2px solid #0b5742;
+        font-size: clamp(1.65rem, 2.2vw, 2.1rem);
     }
 
     .preexam-instructions-content {
@@ -481,8 +518,8 @@
 
     .timer-label {
         font-size: 1.5rem;
-        color: var(--text-color);
-        opacity: 0.7;
+        color: var(--scl-white);
+        opacity: 0.9;
         margin-bottom: 1rem;
         text-transform: uppercase;
         letter-spacing: 0.1em;
@@ -494,37 +531,15 @@
         font-weight: 800;
         margin: 0;
         font-variant-numeric: tabular-nums;
-        color: var(--accent-color);
-        text-shadow: 0 0 30px rgba(88, 166, 255, 0.2);
+        color: var(--scl-gold);
+        text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
     }
 
     .server-time {
         margin-top: 2rem;
         font-size: 1.2rem;
-        opacity: 0.5;
-    }
-
-    .course-name {
-        font-size: clamp(2.5rem, 4vw, 5rem);
-        font-weight: 800;
-        text-transform: uppercase;
-        margin-bottom: 0.5rem;
-        text-align: center;
-        color: var(--text-color);
-        letter-spacing: 0.05em;
-    }
-
-    .exam-title {
-        font-size: 2rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        margin-bottom: 0;
-        opacity: 0.8;
-        text-align: center;
-        color: var(
-            --text-color
-        ); /* Will use SCL_GRAY (#1E2328) in light mode via root variable */
-        letter-spacing: 0.05em;
+        color: var(--scl-white);
+        opacity: 0.85;
     }
 
     /* Exam View */
@@ -540,8 +555,8 @@
     }
 
     .top-bar {
-        padding: 1.25rem 2rem;
-        background-color: var(--scl-blue); /* SCL_BLUE Header */
+        padding: 1.5rem 2rem;
+        background-color: #0b5742;
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
         align-items: center;
@@ -556,12 +571,13 @@
         flex-direction: column;
         align-items: center;
         gap: 0.15rem;
-        font-size: 1.65rem;
+        font-size: 1.8rem;
         font-weight: 600;
         white-space: nowrap;
     }
 
     .header-current-time {
+        justify-self: end;
         align-items: center;
     }
 
@@ -578,7 +594,7 @@
     }
 
     .header-label {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
         font-weight: 600;
         letter-spacing: 0.08em;
         opacity: 0.8;
@@ -586,12 +602,16 @@
     }
 
     .header-title-group {
-        font-size: 1.15rem;
+        min-width: 0;
+        overflow: hidden;
+        font-size: clamp(0.9rem, 1.7vw, 1.25rem);
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: var(--scl-gold); /* SCL_GOLD Title */
+        color: var(--scl-white);
         text-align: left;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .content-grid {
@@ -648,9 +668,9 @@
     .content-heading {
         margin: 0 0 0.5rem;
         padding-bottom: 0.25rem;
-        border-bottom: 2px solid var(--scl-blue);
+        border-bottom: 2px solid #0b5742;
         color: var(--scl-gray);
-        font-size: 1.25rem;
+        font-size: clamp(1.65rem, 2.2vw, 2.1rem);
     }
 
     .content-view {
@@ -671,38 +691,39 @@
 
     @media (max-width: 720px) {
         .timer-view {
-            grid-template-columns: 1fr;
-            grid-template-rows: auto auto auto;
-            align-content: start;
-            gap: 1.5rem;
             overflow-y: auto;
             padding: 1.5rem 1rem;
+        }
+
+        .preexam-content-row {
+            position: static;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-top: 2rem;
+            transform: none;
         }
 
         .preexam-instructions-panel {
             max-height: none;
         }
 
-        .preexam-title-row {
-            grid-column: 1;
-        }
-
         .top-bar {
             grid-template-columns: minmax(0, 1fr) auto auto;
             gap: 0.75rem;
-            padding: 0.9rem 1rem;
+            padding: 1rem;
         }
 
         .header-title-group {
-            font-size: 0.9rem;
+            font-size: clamp(0.65rem, 2.2vw, 1rem);
         }
 
         .header-time {
-            font-size: 1.1rem;
+            font-size: 1.2rem;
         }
 
         .header-label {
-            font-size: 0.62rem;
+            font-size: 0.68rem;
         }
 
         .content-grid {
