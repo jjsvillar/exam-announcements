@@ -463,11 +463,11 @@
         margin: 0 0 0.75rem;
         padding-bottom: 0.5rem;
         border-bottom: 2px solid var(--accent-color);
-        font-size: 1.25rem;
+        font-size: clamp(1.4rem, 1.8vw, 1.75rem);
     }
 
     .preexam-instructions-content {
-        font-size: 1.35rem;
+        font-size: clamp(1.6rem, 2.2vw, 2rem);
         line-height: 1.5;
     }
 
