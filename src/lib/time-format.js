@@ -37,6 +37,15 @@ export function formatExamTimeRemaining(milliseconds) {
     return formatDuration(displayedMilliseconds);
 }
 
+/** @param {number | null} milliseconds */
+export function getExamTimeUrgency(milliseconds) {
+    if (milliseconds === null) return "normal";
+    if (milliseconds <= 5 * MINUTE) return "red";
+    if (milliseconds <= 30 * MINUTE) return "orange";
+    if (milliseconds <= 60 * MINUTE) return "yellow";
+    return "normal";
+}
+
 /** @param {number} timestamp */
 export function formatCurrentTime(timestamp) {
     return new Date(timestamp).toLocaleTimeString("en-US", {

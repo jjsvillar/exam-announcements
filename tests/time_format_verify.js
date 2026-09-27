@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {
     formatCurrentTime,
-    formatExamTimeRemaining
+    formatExamTimeRemaining,
+    getExamTimeUrgency
 } from '../src/lib/time-format.js';
 
 const minute = 60_000;
@@ -21,6 +22,19 @@ const countdownCases = [
 
 for (const [milliseconds, expected, label] of countdownCases) {
     assert.equal(formatExamTimeRemaining(milliseconds), expected, label);
+}
+
+/** @type {Array<[number | null, string, string]>} */
+const urgencyCases = [
+    [61 * minute, 'normal', 'above one hour uses the default color'],
+    [60 * minute, 'yellow', 'the last hour is yellow'],
+    [30 * minute, 'orange', 'the last 30 minutes are orange'],
+    [5 * minute, 'red', 'the last five minutes are red'],
+    [null, 'normal', 'an unset end time uses the default color']
+];
+
+for (const [milliseconds, expected, label] of urgencyCases) {
+    assert.equal(getExamTimeUrgency(milliseconds), expected, label);
 }
 
 const afternoon = new Date(2026, 0, 1, 13, 5).getTime();
