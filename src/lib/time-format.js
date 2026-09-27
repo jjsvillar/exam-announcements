@@ -1,0 +1,47 @@
+const MINUTE = 60_000;
+
+/** @param {number | null} milliseconds */
+export function formatDuration(milliseconds) {
+    if (milliseconds === null) return "--:--:--";
+
+    const hours = Math.floor(milliseconds / 3_600_000);
+    const minutes = Math.floor((milliseconds % 3_600_000) / MINUTE);
+    const seconds = Math.floor((milliseconds % MINUTE) / 1000);
+    return [hours, minutes, seconds]
+        .map((part) => String(part).padStart(2, "0"))
+        .join(":");
+}
+
+/** @param {number | null} milliseconds */
+export function formatExamTimeRemaining(milliseconds) {
+    if (milliseconds === null) return "--:--:--";
+
+    let updateInterval = 1;
+
+    if (milliseconds > 60 * MINUTE) {
+        updateInterval = 30;
+    } else if (milliseconds > 30 * MINUTE) {
+        updateInterval = 10;
+    } else if (milliseconds > 10 * MINUTE) {
+        updateInterval = 5;
+    } else if (milliseconds > 5 * MINUTE) {
+        updateInterval = 1;
+    } else {
+        return formatDuration(milliseconds);
+    }
+
+    const displayedMilliseconds =
+        Math.ceil(milliseconds / (updateInterval * MINUTE)) *
+        updateInterval *
+        MINUTE;
+    return formatDuration(displayedMilliseconds);
+}
+
+/** @param {number} timestamp */
+export function formatCurrentTime(timestamp) {
+    return new Date(timestamp).toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+    });
+}
