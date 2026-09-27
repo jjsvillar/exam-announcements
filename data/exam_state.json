@@ -1,6 +1,7 @@
 {
   "examStartTime": 1773465300000,
   "examEndTime": null,
+  "preExamInstructions": "",
   "generalInstructions": "- **Item 1** The integral must be $$\\int e^x dx$$",
   "clarifications": "",
   "theme": "light",

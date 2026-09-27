@@ -18,6 +18,7 @@ if (!existsSync(DATA_DIR)) {
 const defaultState: ExamState = {
     examStartTime: null,
     examEndTime: null,
+    preExamInstructions: '',
     generalInstructions: '# Waiting for exam to start...',
     clarifications: '',
     theme: 'dark',

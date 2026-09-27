@@ -5,6 +5,7 @@
     let examState: ExamState = $state({
         examStartTime: null,
         examEndTime: null,
+        preExamInstructions: "",
         generalInstructions: "",
         clarifications: "",
         theme: "dark",
@@ -243,7 +244,21 @@
             </div>
         </div>
 
-        <div class="editor-grid">
+        <div class="editor-group preexam-editor">
+            <label for="preExamInstructions">Pre-exam Instructions</label>
+            <textarea
+                id="preExamInstructions"
+                bind:value={examState.preExamInstructions}
+                rows="8"
+                placeholder="# Pre-exam Instructions..."
+            ></textarea>
+            <div class="help-text">
+                Displayed in the transparent panel beside the pre-exam
+                countdown. Supports Markdown and math.
+            </div>
+        </div>
+
+        <div class="editor-grid exam-content-editors">
             <div class="editor-group">
                 <label for="generalInstructions">General Instructions</label>
                 <textarea
@@ -358,6 +373,10 @@
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 1.5rem;
+    }
+
+    .preexam-editor {
+        margin-bottom: 1.5rem;
     }
 
     @media (max-width: 720px) {

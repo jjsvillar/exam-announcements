@@ -15,6 +15,7 @@
     let examState: ExamState = $state({
         examStartTime: null,
         examEndTime: null,
+        preExamInstructions: "",
         generalInstructions: "",
         clarifications: "",
         theme: "dark",
@@ -24,6 +25,7 @@
     });
 
     let now = $state(Date.now());
+    let preExamInstructionsDiv: HTMLDivElement | undefined = $state();
     let generalInstructionsDiv: HTMLDivElement | undefined = $state();
     let clarificationsDiv: HTMLDivElement | undefined = $state();
     let clarificationSlideIndex = $state(0);
@@ -213,6 +215,13 @@
     // Reactively render
     $effect(() => {
         void renderContent(
+            examState.preExamInstructions,
+            preExamInstructionsDiv,
+        );
+    });
+
+    $effect(() => {
+        void renderContent(
             examState.generalInstructions,
             generalInstructionsDiv,
         );
@@ -265,22 +274,38 @@
 <div class="page-container">
     {#if !showExam}
         <div class="timer-view" in:fade={{ duration: 300 }}>
-            {#if examState.courseName}
-                <div
-                    class="course-name"
-                    style={examState.theme === "light"
-                        ? "color: var(--scl-gray) !important;"
-                        : ""}
-                >
-                    {examState.courseName}
+            <header class="preexam-title-row">
+                {#if examState.courseName}
+                    <div
+                        class="course-name"
+                        style={examState.theme === "light"
+                            ? "color: var(--scl-gray) !important;"
+                            : ""}
+                    >
+                        {examState.courseName}
+                    </div>
+                {/if}
+                {#if examState.examTitle}
+                    <div class="exam-title">{examState.examTitle}</div>
+                {/if}
+            </header>
+            <section class="preexam-countdown-column">
+                <div class="timer-label">Exam Starts In</div>
+                <h1 class="timer-display">{startTimeString}</h1>
+                <div class="server-time">
+                    Current Time: {currentTimeString}
                 </div>
-            {/if}
-            {#if examState.examTitle}
-                <div class="exam-title">{examState.examTitle}</div>
-            {/if}
-            <div class="timer-label">Exam Starts In</div>
-            <h1 class="timer-display">{startTimeString}</h1>
-            <div class="server-time">Current Time: {currentTimeString}</div>
+            </section>
+            <section
+                class="preexam-instructions-panel"
+                class:light-panel={examState.theme === "light"}
+            >
+                <h2>Pre-exam Instructions</h2>
+                <div
+                    class="preexam-instructions-content"
+                    bind:this={preExamInstructionsDiv}
+                ></div>
+            </section>
         </div>
     {:else}
         <!-- Exam View -->
@@ -388,12 +413,70 @@
     /* Timer View */
     .timer-view {
         flex: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(22rem, 3fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        column-gap: clamp(2rem, 5vw, 5rem);
+        row-gap: 1rem;
         align-items: center;
-        /* Remove explicit background to show media */
+        padding: 2rem 5vw;
+        box-sizing: border-box;
         background: transparent;
+    }
+
+    .preexam-title-row {
+        grid-column: 1 / -1;
+        width: 100%;
+        padding-block: clamp(1rem, 3vh, 2rem);
+        box-sizing: border-box;
+        text-align: center;
+    }
+
+    .preexam-countdown-column {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .preexam-instructions-panel {
+        width: 100%;
+        max-height: calc(100vh - 11rem);
+        overflow-y: auto;
+        box-sizing: border-box;
+        padding: 1.5rem 1.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 14px;
+        background: rgba(13, 17, 23, 0.5);
+        color: var(--text-color);
+        backdrop-filter: blur(6px);
+    }
+
+    .preexam-instructions-panel.light-panel {
+        border-color: rgba(30, 35, 40, 0.18);
+        background: rgba(255, 255, 255, 0.5);
+        color: var(--scl-gray);
+    }
+
+    .preexam-instructions-panel h2 {
+        margin: 0 0 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--accent-color);
+        font-size: 1.25rem;
+    }
+
+    .preexam-instructions-content {
+        font-size: 1.35rem;
+        line-height: 1.5;
+    }
+
+    :global(.preexam-instructions-content > :first-child) {
+        margin-top: 0;
+    }
+
+    :global(.preexam-instructions-content > :last-child) {
+        margin-bottom: 0;
     }
 
     .timer-label {
@@ -406,7 +489,8 @@
     }
 
     .timer-display {
-        font-size: 8rem;
+        max-width: 100%;
+        font-size: clamp(2.5rem, 6vw, 6rem);
         font-weight: 800;
         margin: 0;
         font-variant-numeric: tabular-nums;
@@ -421,7 +505,7 @@
     }
 
     .course-name {
-        font-size: 6rem;
+        font-size: clamp(2.5rem, 4vw, 5rem);
         font-weight: 800;
         text-transform: uppercase;
         margin-bottom: 0.5rem;
@@ -434,7 +518,7 @@
         font-size: 2rem;
         font-weight: 600;
         text-transform: uppercase;
-        margin-bottom: 3rem;
+        margin-bottom: 0;
         opacity: 0.8;
         text-align: center;
         color: var(
@@ -585,6 +669,23 @@
     }
 
     @media (max-width: 720px) {
+        .timer-view {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto auto auto;
+            align-content: start;
+            gap: 1.5rem;
+            overflow-y: auto;
+            padding: 1.5rem 1rem;
+        }
+
+        .preexam-instructions-panel {
+            max-height: none;
+        }
+
+        .preexam-title-row {
+            grid-column: 1;
+        }
+
         .top-bar {
             grid-template-columns: minmax(0, 1fr) auto auto;
             gap: 0.75rem;
