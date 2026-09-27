@@ -9,6 +9,7 @@
         formatCurrentTime,
         formatDuration,
         formatExamTimeRemaining,
+        getExamTimeUrgency,
     } from "$lib/time-format.js";
 
     let examState: ExamState = $state({
@@ -49,17 +50,7 @@
     );
     const startTimeString = $derived(formatDuration(startTimeLeft));
     const endTimeString = $derived(formatExamTimeRemaining(endTimeLeft));
-    const endTimeUrgency = $derived(
-        endTimeLeft === null
-            ? "normal"
-            : endTimeLeft <= 5 * 60_000
-              ? "red"
-              : endTimeLeft <= 15 * 60_000
-                ? "orange"
-                : endTimeLeft <= 30 * 60_000
-                  ? "yellow"
-                  : "normal",
-    );
+    const endTimeUrgency = $derived(getExamTimeUrgency(endTimeLeft));
     const currentTimeString = $derived(formatCurrentTime(now));
     const clarificationSlides = $derived(
         groupClarifications(examState.clarifications),
