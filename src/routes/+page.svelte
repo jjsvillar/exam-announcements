@@ -5,6 +5,11 @@
     import DOMPurify from "dompurify";
     import { Volume2, VolumeX } from "lucide-svelte";
     import type { ExamState } from "$lib/types";
+    import {
+        formatCurrentTime,
+        formatDuration,
+        formatExamTimeRemaining,
+    } from "$lib/time-format.js";
 
     let examState: ExamState = $state({
         examStartTime: null,
@@ -55,12 +60,7 @@
                   ? "yellow"
                   : "normal",
     );
-    const currentTimeString = $derived(
-        new Date(now).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-        }),
-    );
+    const currentTimeString = $derived(formatCurrentTime(now));
     const clarificationSlides = $derived(
         groupClarifications(examState.clarifications),
     );
@@ -156,39 +156,6 @@
             clearInterval(interval);
         };
     });
-
-    function formatDuration(milliseconds: number | null) {
-        if (milliseconds === null) return "--:--:--";
-
-        const hours = Math.floor(milliseconds / 3600000);
-        const minutes = Math.floor((milliseconds % 3600000) / 60000);
-        const seconds = Math.floor((milliseconds % 60000) / 1000);
-        return [hours, minutes, seconds]
-            .map((part) => String(part).padStart(2, "0"))
-            .join(":");
-    }
-
-    function formatExamTimeRemaining(milliseconds: number | null) {
-        if (milliseconds === null) return "--:--:--";
-
-        const minute = 60_000;
-        let displayedMilliseconds = milliseconds;
-
-        if (milliseconds > 30 * minute) {
-            displayedMilliseconds =
-                Math.ceil(milliseconds / (30 * minute)) * 30 * minute;
-        } else if (milliseconds > 15 * minute) {
-            displayedMilliseconds =
-                Math.ceil(milliseconds / (15 * minute)) * 15 * minute;
-        } else if (milliseconds > 10 * minute) {
-            displayedMilliseconds =
-                Math.ceil(milliseconds / (5 * minute)) * 5 * minute;
-        } else if (milliseconds > 5 * minute) {
-            displayedMilliseconds = Math.ceil(milliseconds / minute) * minute;
-        }
-
-        return formatDuration(displayedMilliseconds);
-    }
 
     function groupClarifications(markdown: string) {
         const linesPerSlide = 8;

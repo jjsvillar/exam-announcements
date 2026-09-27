@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 export const stateEmitter = new EventEmitter();
+stateEmitter.setMaxListeners(0);
 
 const DATA_DIR = join(process.cwd(), 'data');
 const STATE_FILE = join(DATA_DIR, 'exam_state.json');
