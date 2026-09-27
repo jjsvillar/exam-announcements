@@ -463,11 +463,11 @@
         margin: 0 0 0.75rem;
         padding-bottom: 0.5rem;
         border-bottom: 2px solid var(--accent-color);
-        font-size: 1.25rem;
+        font-size: clamp(1.4rem, 1.8vw, 1.75rem);
     }
 
     .preexam-instructions-content {
-        font-size: 1.35rem;
+        font-size: clamp(1.6rem, 2.2vw, 2rem);
         line-height: 1.5;
     }
 
@@ -540,7 +540,7 @@
     }
 
     .top-bar {
-        padding: 1rem 2rem;
+        padding: 1.25rem 2rem;
         background-color: var(--scl-blue); /* SCL_BLUE Header */
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -556,7 +556,7 @@
         flex-direction: column;
         align-items: center;
         gap: 0.15rem;
-        font-size: 1.5rem;
+        font-size: 1.65rem;
         font-weight: 600;
         white-space: nowrap;
     }
@@ -578,7 +578,7 @@
     }
 
     .header-label {
-        font-size: 0.7rem;
+        font-size: 0.8rem;
         font-weight: 600;
         letter-spacing: 0.08em;
         opacity: 0.8;
@@ -586,6 +586,7 @@
     }
 
     .header-title-group {
+        font-size: 1.15rem;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.05em;
@@ -689,19 +690,19 @@
         .top-bar {
             grid-template-columns: minmax(0, 1fr) auto auto;
             gap: 0.75rem;
-            padding: 0.75rem 1rem;
+            padding: 0.9rem 1rem;
         }
 
         .header-title-group {
-            font-size: 0.8rem;
+            font-size: 0.9rem;
         }
 
         .header-time {
-            font-size: 1rem;
+            font-size: 1.1rem;
         }
 
         .header-label {
-            font-size: 0.55rem;
+            font-size: 0.62rem;
         }
 
         .content-grid {
