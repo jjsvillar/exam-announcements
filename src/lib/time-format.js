@@ -16,25 +16,7 @@ export function formatDuration(milliseconds) {
 export function formatExamTimeRemaining(milliseconds) {
     if (milliseconds === null) return "--:--:--";
 
-    let updateInterval = 1;
-
-    if (milliseconds > 60 * MINUTE) {
-        updateInterval = 30;
-    } else if (milliseconds > 30 * MINUTE) {
-        updateInterval = 10;
-    } else if (milliseconds > 10 * MINUTE) {
-        updateInterval = 5;
-    } else if (milliseconds > 5 * MINUTE) {
-        updateInterval = 1;
-    } else {
-        return formatDuration(milliseconds);
-    }
-
-    const displayedMilliseconds =
-        Math.ceil(milliseconds / (updateInterval * MINUTE)) *
-        updateInterval *
-        MINUTE;
-    return formatDuration(displayedMilliseconds);
+    return formatDuration(Math.ceil(milliseconds / MINUTE) * MINUTE);
 }
 
 /** @param {number | null} milliseconds */
