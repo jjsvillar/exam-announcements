@@ -39,6 +39,8 @@
     let dingEnabled = $state(false);
     let dingPending = $state(false);
     let dingContext: AudioContext | undefined;
+    const activeDings = new Set<{ oscillator: OscillatorNode; gain: GainNode }>();
+    let previousExamRemaining: number | null = null;
     // SSE connection
     let eventSource: EventSource;
 
@@ -90,8 +92,14 @@
             if (!document.hidden) void syncTime();
         };
         document.addEventListener("visibilitychange", onVisibilityChange);
-        const displayInterval = setInterval(() => { now = clock.now(); }, 100);
         const interval = setInterval(() => {
+            now = clock.now();
+            const remaining = showExam && now !== null && examState.examEndTime !== null
+                ? examState.examEndTime - now : null;
+            if (previousExamRemaining !== null && previousExamRemaining > 0 && remaining !== null && remaining <= 0) {
+                for (let i = 0; i < 3; i++) playDing(i * 0.35);
+            }
+            previousExamRemaining = remaining;
             if (showExam && clarificationSlides.length > 1) {
                 clarificationSlideSeconds += 1;
                 if (clarificationSlideSeconds >= 10) {
@@ -182,7 +190,6 @@
             active = false;
             document.removeEventListener("visibilitychange", onVisibilityChange);
             clearInterval(resyncInterval);
-            clearInterval(displayInterval);
             if (eventSource) eventSource.close();
             clearInterval(interval);
             dingEnabled = false;
@@ -193,6 +200,12 @@
     async function toggleDing() {
         if (dingEnabled) {
             dingEnabled = false;
+            for (const { oscillator, gain } of activeDings) {
+                try { oscillator.stop(dingContext!.currentTime); } catch { /* Already ended. */ }
+                oscillator.disconnect();
+                gain.disconnect();
+            }
+            activeDings.clear();
             return;
         }
         if (!window.AudioContext) return;
@@ -208,10 +221,10 @@
         }
     }
 
-    function playDing() {
+    function playDing(offset = 0) {
         if (!dingEnabled || dingContext?.state !== "running") return;
         try {
-            const start = dingContext.currentTime;
+            const start = dingContext.currentTime + offset;
             const oscillator = dingContext.createOscillator();
             const gain = dingContext.createGain();
             oscillator.type = "sine";
@@ -224,7 +237,13 @@
             gain.connect(dingContext.destination);
             oscillator.start(start);
             oscillator.stop(start + 0.24);
-            oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+            const ding = { oscillator, gain };
+            activeDings.add(ding);
+            oscillator.onended = () => {
+                activeDings.delete(ding);
+                oscillator.disconnect();
+                gain.disconnect();
+            };
         } catch {
             // Audio may become unavailable without interrupting live updates.
         }
@@ -411,7 +430,7 @@
     disabled={dingPending || typeof AudioContext === "undefined"}
     aria-pressed={dingEnabled}
 >
-    {dingEnabled ? "Mute update ding" : "Enable update ding"}
+    {dingEnabled ? "Mute exam and update dings" : "Enable exam and update dings"}
 </button>
 
 <div class="page-container">

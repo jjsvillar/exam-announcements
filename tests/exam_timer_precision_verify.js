@@ -84,15 +84,18 @@ try {
         const schedule = window.setInterval.bind(window);
         const cancel = window.clearInterval.bind(window);
         const activeHundredMs = new Set();
+        const activeSeconds = new Set();
         /** @param {TimerHandler} handler @param {number} [delay] @param {any[]} args */
         const trackedInterval = (handler, delay, ...args) => {
             const id = schedule(handler, delay, ...args);
             if (delay === 100) activeHundredMs.add(id);
+            if (delay === 1000) activeSeconds.add(id);
             return id;
         };
         Object.defineProperty(window, 'setInterval', { value: trackedInterval });
-        window.clearInterval = id => { activeHundredMs.delete(id); cancel(id); };
+        window.clearInterval = id => { activeHundredMs.delete(id); activeSeconds.delete(id); cancel(id); };
         Object.defineProperty(window, '__activeHundredMs', { value: activeHundredMs });
+        Object.defineProperty(window, '__activeSeconds', { value: activeSeconds });
     });
     /** @type {string[]} */
     const errors = [];
@@ -120,31 +123,42 @@ try {
     console.log(`At 10m crossing: ${secondsBefore} -> ${secondsAfter}, second precision and orange color`);
 
     await update({ examEndTime: Date.now() + 5 * 60_000 + 350 });
-    await page.waitForFunction(() => /\.\d$/.test(document.querySelector('.header-time-remaining > span:last-child')?.textContent ?? ''), null, { timeout: 2500 });
+    await page.waitForFunction(() => /^00:04:\d{2}$/.test(document.querySelector('.header-time-remaining > span:last-child')?.textContent ?? ''), null, { timeout: 2500 });
     assert.ok(await color.evaluate(el => el.classList.contains('remaining-red')), 'five-minute range red');
-    const tenthsBefore = await remaining.textContent();
+    const firstSecond = await remaining.textContent();
     await page.waitForFunction(before => document.querySelector('.header-time-remaining > span:last-child')?.textContent !== before,
-        tenthsBefore, { timeout: 750 });
-    const tenthsAfter = await remaining.textContent();
-    assert.match(tenthsAfter ?? '', /^00:04:\d{2}\.\d$/);
-    console.log(`At 5m crossing: ${tenthsBefore} -> ${tenthsAfter}, tenth-second precision and red color`);
-    await fits(page, 'desktop tenths');
+        firstSecond, { timeout: 1500 });
+    const secondsNearEnd = await remaining.textContent();
+    await page.waitForTimeout(180);
+    assert.equal(await remaining.textContent(), secondsNearEnd, 'subsecond updates never change whole-second display');
+    await page.waitForFunction(before => document.querySelector('.header-time-remaining > span:last-child')?.textContent !== before,
+        secondsNearEnd, { timeout: 1500 });
+    const nextSecond = await remaining.textContent();
+    assert.match(nextSecond ?? '', /^00:04:\d{2}$/);
+    console.log(`At 5m crossing: ${secondsNearEnd} -> ${nextSecond}, whole-second precision and red color`);
+    await fits(page, 'desktop seconds');
     await page.setViewportSize({ width: 390, height: 700 });
-    await fits(page, 'mobile tenths');
-    console.log('Desktop/mobile tenths: numeric values fit and page has no horizontal overflow');
+    await fits(page, 'mobile seconds');
+    console.log('Desktop/mobile seconds: numeric values fit and page has no horizontal overflow');
 
     const first = await page.locator('.clarification-slide').textContent();
     assert.match(first ?? '', /First clarification/);
     await page.waitForTimeout(1_500);
-    assert.match(await page.locator('.clarification-slide').textContent() ?? '', /First clarification/, 'clarifications do not rotate on 100ms ticks');
+    assert.match(await page.locator('.clarification-slide').textContent() ?? '', /First clarification/, 'clarifications do not rotate before ten seconds');
     await page.waitForFunction(() => document.querySelector('.clarification-slide')?.textContent?.includes('Second clarification'), null, { timeout: 12_000 });
-    console.log('Clarifications rotate after ten one-second ticks, not ten 100ms ticks');
+    console.log('Clarifications rotate after ten one-second ticks');
+
+    await update({ examEndTime: Date.now() - 1_000 });
+    await page.waitForFunction(() => document.querySelector('.header-time-remaining > span:last-child')?.textContent === '00:00:00');
+    assert.ok(await color.evaluate(el => el.classList.contains('remaining-red')), 'expired timer remains red');
+    assert.equal(await page.evaluate(() => Reflect.get(window, '__activeHundredMs').size), 0, 'no 100ms display timer');
+    assert.equal(await page.evaluate(() => Reflect.get(window, '__activeSeconds').size), 1, 'one second cadence while mounted');
 
     await update({ examStartTime: Date.now() + 4 * 60_000 + 37_000, examEndTime: Date.now() + 60 * 60_000 });
     await page.waitForFunction(() => document.querySelector('.timer-display')?.textContent?.match(/^00:04:3[0-7]$/));
     assert.match(await page.locator('.server-time').textContent() ?? '', /Current Time: \d{2}:\d{2} [AP]M/);
     assert.equal(await page.locator('.header-time-remaining').count(), 0, 'exam timer absent pre-exam');
-    assert.equal(await page.evaluate(() => Reflect.get(window, '__activeHundredMs').size), 1, 'one high-frequency timer while page mounted');
+    assert.equal(await page.evaluate(() => Reflect.get(window, '__activeHundredMs').size), 0, 'no high-frequency timer while page mounted');
     const probe = await page.evaluate(() => {
         const token = crypto.randomUUID();
         Object.defineProperty(window, '__timerProbe', { value: token });
@@ -157,9 +171,10 @@ try {
     });
     await page.waitForURL('**/admin');
     assert.equal(await page.evaluate(token => Reflect.get(window, '__timerProbe') === token, probe), true, 'client navigation retains the same document');
-    assert.equal(await page.evaluate(() => Reflect.get(window, '__activeHundredMs').size), 0, '100ms display interval cleared on unmount');
+    assert.equal(await page.evaluate(() => Reflect.get(window, '__activeSeconds').size), 0, 'one-second display interval cleared on unmount');
+    assert.equal(await page.evaluate(() => Reflect.get(window, '__activeHundredMs').size), 0, 'no 100ms timer after unmount');
     assert.deepEqual(errors, [], 'no browser page errors');
-    console.log('Pre-exam countdown/current clock unchanged; 100ms interval removed on client navigation; no browser errors');
+    console.log('Pre-exam countdown/current clock unchanged; one-second interval removed on client navigation; no browser errors');
 } finally {
     if (browser) await browser.close();
     if (server) {

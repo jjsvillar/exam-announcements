@@ -18,10 +18,7 @@ export function formatExamTimeRemaining(milliseconds) {
 
     const remaining = Math.max(0, milliseconds);
     if (remaining > 10 * MINUTE) return formatDuration(Math.ceil(remaining / MINUTE) * MINUTE);
-    if (remaining > 5 * MINUTE) return formatDuration(remaining);
-
-    const tenths = Math.floor(remaining / 100);
-    return `${formatDuration(Math.floor(tenths / 10) * 1000)}.${tenths % 10}`;
+    return formatDuration(remaining);
 }
 
 /** @param {number | null} milliseconds */
