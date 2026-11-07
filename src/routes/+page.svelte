@@ -5,6 +5,7 @@
     import DOMPurify from "dompurify";
     import { Volume2, VolumeX } from "lucide-svelte";
     import type { ExamState } from "$lib/types";
+    import { createServerClock } from "$lib/server-clock.js";
     import {
         formatCurrentTime,
         formatDuration,
@@ -24,7 +25,8 @@
         audioUrl: "",
     });
 
-    let now = $state(Date.now());
+    let now: number | null = $state(null);
+    let hostTimeZone: string | null = $state(null);
     let preExamInstructionsDiv: HTMLDivElement | undefined = $state();
     let generalInstructionsDiv: HTMLDivElement | undefined = $state();
     let clarificationsDiv: HTMLDivElement | undefined = $state();
@@ -38,22 +40,22 @@
     let eventSource: EventSource;
 
     const startTimeLeft = $derived(
-        examState.examStartTime === null
+        examState.examStartTime === null || now === null
             ? null
             : Math.max(0, examState.examStartTime - now),
     );
     const endTimeLeft = $derived(
-        examState.examEndTime === null
+        examState.examEndTime === null || now === null
             ? null
             : Math.max(0, examState.examEndTime - now),
     );
     const showExam = $derived(
-        examState.examStartTime !== null && startTimeLeft === 0,
+        now !== null && examState.examStartTime !== null && startTimeLeft === 0,
     );
     const startTimeString = $derived(formatDuration(startTimeLeft));
     const endTimeString = $derived(formatExamTimeRemaining(endTimeLeft));
     const endTimeUrgency = $derived(getExamTimeUrgency(endTimeLeft));
-    const currentTimeString = $derived(formatCurrentTime(now));
+    const currentTimeString = $derived(formatCurrentTime(now, hostTimeZone ?? undefined));
     const clarificationSlides = $derived(
         groupClarifications(examState.clarifications),
     );
@@ -62,8 +64,31 @@
     );
 
     onMount(() => {
+        let active = true;
+        const clock = createServerClock(async () => {
+            const response = await fetch("/api/time", { cache: "no-store" });
+            if (!response.ok) throw new Error("Host time unavailable");
+            return response.json();
+        });
+        const syncTime = async () => {
+            try {
+                await clock.sync();
+                if (active) {
+                    hostTimeZone = clock.timeZone;
+                    now = clock.now();
+                }
+            } catch {
+                // Keep the previous host sample, or the unsynchronized placeholder; retry later.
+            }
+        };
+        void syncTime();
+        const resyncInterval = setInterval(() => { void syncTime(); }, 30_000);
+        const onVisibilityChange = () => {
+            if (!document.hidden) void syncTime();
+        };
+        document.addEventListener("visibilitychange", onVisibilityChange);
         const interval = setInterval(() => {
-            now = Date.now();
+            now = clock.now();
 
             if (showExam && clarificationSlides.length > 1) {
                 clarificationSlideSeconds += 1;
@@ -79,7 +104,7 @@
             }
 
             // Sync Audio
-            if (audioEl && examState.audioUrl) {
+            if (now !== null && audioEl && examState.audioUrl) {
                 if (showExam) {
                     audioEl.pause();
                     audioEl.currentTime = 0;
@@ -145,6 +170,9 @@
         };
 
         return () => {
+            active = false;
+            document.removeEventListener("visibilitychange", onVisibilityChange);
+            clearInterval(resyncInterval);
             if (eventSource) eventSource.close();
             clearInterval(interval);
         };
@@ -182,7 +210,7 @@
     }
 
     function toggleMute() {
-        if (!audioEl) return;
+        if (!audioEl || now === null) return;
         isMuted = !isMuted;
         audioEl.muted = isMuted;
         if (!isMuted) {
@@ -641,7 +669,7 @@
         flex-direction: column;
         align-items: center;
         gap: 0.15rem;
-        font-size: 1.8rem;
+        font-size: 2.1rem;
         font-weight: 600;
         white-space: nowrap;
     }
@@ -801,7 +829,7 @@
         }
 
         .header-time {
-            font-size: 1.2rem;
+            font-size: 1.4rem;
         }
 
         .header-label {

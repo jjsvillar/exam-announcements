@@ -46,11 +46,13 @@ export function getExamTimeUrgency(milliseconds) {
     return "normal";
 }
 
-/** @param {number} timestamp */
-export function formatCurrentTime(timestamp) {
+/** @param {number | null} timestamp @param {string} [timeZone] */
+export function formatCurrentTime(timestamp, timeZone) {
+    if (timestamp === null) return "--:-- --";
     return new Date(timestamp).toLocaleTimeString("en-US", {
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
+        ...(timeZone ? { timeZone } : {}),
     });
 }
