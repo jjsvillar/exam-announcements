@@ -36,6 +36,9 @@
     // Multimedia
     let audioEl: HTMLAudioElement | undefined = $state();
     let isMuted = $state(true); // Default to muted for policy compliance
+    let dingEnabled = $state(false);
+    let dingPending = $state(false);
+    let dingContext: AudioContext | undefined;
     // SSE connection
     let eventSource: EventSource;
 
@@ -152,9 +155,16 @@
             }
         }, 1000);
 
+        let receivedState = false;
         eventSource = new EventSource("/api/events");
         eventSource.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+            const data: ExamState = JSON.parse(event.data);
+            if (receivedState && (
+                data.generalInstructions !== examState.generalInstructions ||
+                data.clarifications !== examState.clarifications ||
+                data.examEndTime !== examState.examEndTime
+            )) playDing();
+            receivedState = true;
             if (data.clarifications !== examState.clarifications) {
                 clarificationSlideIndex = 0;
                 clarificationSlideSeconds = 0;
@@ -175,8 +185,50 @@
             clearInterval(resyncInterval);
             if (eventSource) eventSource.close();
             clearInterval(interval);
+            dingEnabled = false;
+            void dingContext?.close().catch(() => {});
         };
     });
+
+    async function toggleDing() {
+        if (dingEnabled) {
+            dingEnabled = false;
+            return;
+        }
+        if (!window.AudioContext) return;
+        dingPending = true;
+        try {
+            dingContext ??= new AudioContext();
+            await dingContext.resume();
+            dingEnabled = dingContext.state === "running";
+        } catch {
+            dingEnabled = false;
+        } finally {
+            dingPending = false;
+        }
+    }
+
+    function playDing() {
+        if (!dingEnabled || dingContext?.state !== "running") return;
+        try {
+            const start = dingContext.currentTime;
+            const oscillator = dingContext.createOscillator();
+            const gain = dingContext.createGain();
+            oscillator.type = "sine";
+            oscillator.frequency.setValueAtTime(660, start);
+            oscillator.frequency.exponentialRampToValueAtTime(880, start + 0.12);
+            gain.gain.setValueAtTime(0.001, start);
+            gain.gain.exponentialRampToValueAtTime(0.025, start + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, start + 0.24);
+            oscillator.connect(gain);
+            gain.connect(dingContext.destination);
+            oscillator.start(start);
+            oscillator.stop(start + 0.24);
+            oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+        } catch {
+            // Audio may become unavailable without interrupting live updates.
+        }
+    }
 
     function groupClarifications(markdown: string) {
         const linesPerSlide = 8;
@@ -353,6 +405,15 @@
     </button>
 {/if}
 
+<button
+    class="ding-toggle"
+    onclick={toggleDing}
+    disabled={dingPending || typeof AudioContext === "undefined"}
+    aria-pressed={dingEnabled}
+>
+    {dingEnabled ? "Mute update ding" : "Enable update ding"}
+</button>
+
 <div class="page-container">
     {#if !showExam}
         <div class="timer-view" in:fade={{ duration: 300 }}>
@@ -495,6 +556,20 @@
 
     .mute-toggle:hover {
         background: rgba(0, 0, 0, 0.8);
+    }
+
+    .ding-toggle {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 100;
+        min-height: 48px;
+        padding: 0 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 24px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        cursor: pointer;
     }
 
     /* Timer View */
