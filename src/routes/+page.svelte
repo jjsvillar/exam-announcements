@@ -191,6 +191,60 @@
         }
     }
 
+    function fitInstructions(element: HTMLDivElement) {
+        let frame = 0;
+        let destroyed = false;
+        const fit = () => {
+            frame = 0;
+            element.style.fontSize = "";
+            const maximum = parseFloat(getComputedStyle(element).fontSize);
+            const minimum = Math.min(16, maximum);
+            const fits = () =>
+                element.scrollHeight <= element.clientHeight + 1 &&
+                element.scrollWidth <= element.clientWidth + 1;
+
+            if (fits()) return;
+            element.style.fontSize = `${minimum}px`;
+            if (!fits()) return; // Keep readable text scrollable when even the floor cannot fit.
+
+            let low = minimum;
+            let high = maximum;
+            while (high - low > 0.25) {
+                const middle = (low + high) / 2;
+                element.style.fontSize = `${middle}px`;
+                if (fits()) low = middle;
+                else high = middle;
+            }
+            element.style.fontSize = `${low}px`;
+        };
+        const schedule = () => {
+            if (destroyed) return;
+            if (!frame) frame = requestAnimationFrame(fit);
+        };
+        const observer = new ResizeObserver(schedule);
+        observer.observe(element);
+        if (element.parentElement) observer.observe(element.parentElement);
+        const mutations = new MutationObserver(schedule);
+        mutations.observe(element, { childList: true, subtree: true });
+        element.addEventListener("load", schedule, true); // Images in authored markdown.
+        window.addEventListener("resize", schedule);
+        document.fonts?.addEventListener("loadingdone", schedule);
+        void document.fonts?.ready.then(schedule);
+        schedule();
+
+        return {
+            destroy() {
+                destroyed = true;
+                cancelAnimationFrame(frame);
+                observer.disconnect();
+                mutations.disconnect();
+                element.removeEventListener("load", schedule, true);
+                window.removeEventListener("resize", schedule);
+                document.fonts?.removeEventListener("loadingdone", schedule);
+            },
+        };
+    }
+
     async function renderContent(markdown: string, element?: HTMLDivElement) {
         if (element) {
             // Dynamic import for client-side only
@@ -306,6 +360,7 @@
                     <div
                         class="preexam-instructions-content"
                         bind:this={preExamInstructionsDiv}
+                        use:fitInstructions
                     ></div>
                 </section>
             </div>
@@ -336,11 +391,12 @@
                 </div>
             </header>
             <main class="content-grid">
-                <section class="content-column">
+                <section class="content-column general-instructions-column">
                     <h1 class="content-heading">General Instructions</h1>
                     <div
-                        class="content-view"
+                        class="content-view general-instructions-content"
                         bind:this={generalInstructionsDiv}
+                        use:fitInstructions
                     ></div>
                 </section>
                 <section class="content-column clarification-column">
@@ -416,10 +472,14 @@
     /* Timer View */
     .timer-view {
         flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
         position: relative;
         padding: 1rem 5vw 2rem;
         box-sizing: border-box;
         background: transparent;
+        overflow-y: auto;
     }
 
     .preexam-title-row {
@@ -458,15 +518,13 @@
     }
 
     .preexam-content-row {
-        position: absolute;
-        top: 50%;
-        right: 3vw;
-        left: 3vw;
+        flex: 1;
+        min-height: 0;
         display: grid;
         grid-template-columns: minmax(0, 2fr) minmax(22rem, 3fr);
         gap: clamp(4rem, 6vw, 6rem);
-        align-items: center;
-        transform: translateY(-50%);
+        align-items: stretch;
+        margin-top: 1rem;
     }
 
     .preexam-countdown-column {
@@ -479,8 +537,9 @@
 
     .preexam-instructions-panel {
         width: 100%;
-        max-height: calc(100vh - 11rem);
-        overflow-y: auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
         box-sizing: border-box;
         padding: 1.5rem 1.75rem;
         border: 1px solid rgba(255, 255, 255, 0.2);
@@ -497,6 +556,7 @@
     }
 
     .preexam-instructions-panel h2 {
+        flex: none;
         margin: 0 0 0.75rem;
         padding-bottom: 0.5rem;
         border-bottom: 2px solid #0b5742;
@@ -504,8 +564,18 @@
     }
 
     .preexam-instructions-content {
+        flex: 1;
+        min-height: 0;
+        display: flow-root;
+        overflow: auto;
         font-size: clamp(1.6rem, 2.2vw, 2rem);
         line-height: 1.5;
+    }
+
+    :global(.preexam-instructions-content img),
+    :global(.general-instructions-content img) {
+        max-width: 100%;
+        height: auto;
     }
 
     :global(.preexam-instructions-content > :first-child) {
@@ -631,6 +701,19 @@
         padding: 0.75rem 2rem;
     }
 
+    .general-instructions-column {
+        display: flex;
+        min-height: 0;
+        flex-direction: column;
+    }
+
+    .general-instructions-content {
+        flex: 1;
+        min-height: 0;
+        display: flow-root;
+        overflow: auto;
+    }
+
     .content-column + .content-column {
         border-left: 1px solid var(--border-color);
     }
@@ -651,7 +734,7 @@
 
     .clarification-slide {
         height: 100%;
-        overflow: hidden;
+        overflow: auto;
     }
 
     .slide-counter {
@@ -696,16 +779,15 @@
         }
 
         .preexam-content-row {
-            position: static;
+            flex: none;
             display: grid;
             grid-template-columns: 1fr;
             gap: 1.5rem;
             margin-top: 2rem;
-            transform: none;
         }
 
         .preexam-instructions-panel {
-            max-height: none;
+            height: max(12rem, calc(100dvh - 11rem));
         }
 
         .top-bar {
