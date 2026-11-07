@@ -669,7 +669,7 @@
         margin: 0 0 0.5rem;
         padding-bottom: 0.25rem;
         border-bottom: 2px solid #0b5742;
-        color: var(--scl-gray);
+        color: #0b5742;
         font-size: clamp(1.65rem, 2.2vw, 2.1rem);
     }
 
