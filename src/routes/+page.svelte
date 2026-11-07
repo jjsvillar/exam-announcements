@@ -90,9 +90,8 @@
             if (!document.hidden) void syncTime();
         };
         document.addEventListener("visibilitychange", onVisibilityChange);
+        const displayInterval = setInterval(() => { now = clock.now(); }, 100);
         const interval = setInterval(() => {
-            now = clock.now();
-
             if (showExam && clarificationSlides.length > 1) {
                 clarificationSlideSeconds += 1;
                 if (clarificationSlideSeconds >= 10) {
@@ -183,6 +182,7 @@
             active = false;
             document.removeEventListener("visibilitychange", onVisibilityChange);
             clearInterval(resyncInterval);
+            clearInterval(displayInterval);
             if (eventSource) eventSource.close();
             clearInterval(interval);
             dingEnabled = false;
